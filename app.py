@@ -1,11 +1,7 @@
 import streamlit as st
 import joblib
 import pandas as pd
-
-# -------------------------------
-# LOAD MODEL
-# -------------------------------
-model = joblib.load("model.pkl")
+import os
 
 # -------------------------------
 # PAGE CONFIG
@@ -13,62 +9,62 @@ model = joblib.load("model.pkl")
 st.set_page_config(page_title="AI Churn Predictor", layout="wide")
 
 # -------------------------------
-# PREMIUM CSS 🔥
+# SAFE MODEL LOAD (NO CRASH)
+# -------------------------------
+model = None
+
+try:
+    if os.path.exists("model.pkl"):
+        model = joblib.load("model.pkl")
+    else:
+        st.error("❌ model.pkl not found. Please upload it to GitHub.")
+except Exception as e:
+    st.error("❌ Model failed to load. Version mismatch or corrupted file.")
+    st.stop()
+
+# -------------------------------
+# PREMIUM UI
 # -------------------------------
 st.markdown("""
 <style>
-
 body {
     background: linear-gradient(135deg, #0f172a, #1e293b);
     color: white;
 }
-
-/* Title */
 .title {
     text-align: center;
-    font-size: 48px;
+    font-size: 45px;
     font-weight: bold;
     background: linear-gradient(90deg, #38bdf8, #6366f1);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
-
-/* Glass Card */
 .card {
     background: rgba(255,255,255,0.05);
-    padding: 30px;
+    padding: 25px;
     border-radius: 20px;
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    backdrop-filter: blur(15px);
     margin-bottom: 20px;
 }
-
-/* Section Title */
-.section-title {
-    font-size: 20px;
+.section {
+    font-size: 18px;
     margin-bottom: 10px;
     color: #38bdf8;
 }
-
-/* Button */
-.stButton>button {
-    width: 100%;
-    background: linear-gradient(90deg, #6366f1, #8b5cf6);
-    color: white;
-    border-radius: 12px;
-    height: 55px;
-    font-size: 18px;
-}
-
-/* Result Box */
-.result-box {
+.result {
     padding: 25px;
     border-radius: 15px;
     text-align: center;
-    font-size: 26px;
+    font-size: 24px;
     font-weight: bold;
 }
-
+.stButton>button {
+    width: 100%;
+    height: 50px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    color: white;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,68 +74,51 @@ body {
 st.markdown('<div class="title">🤖 AI Customer Churn Predictor</div>', unsafe_allow_html=True)
 
 # -------------------------------
-# MAIN CARD
+# INPUT CARD
 # -------------------------------
 st.markdown('<div class="card">', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 # -------------------------------
-# BASIC INFO
+# USER FRIENDLY INPUTS
 # -------------------------------
 with col1:
-    st.markdown('<div class="section-title">👤 Customer Info</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section">👤 Customer Info</div>', unsafe_allow_html=True)
     gender = st.radio("Gender", ["Male", "Female"])
     senior = st.radio("Age Group", ["Below 60", "Above 60"])
     partner = st.radio("Has Partner?", ["No", "Yes"])
-    dependents = st.radio("Has Family Dependents?", ["No", "Yes"])
-    tenure = st.slider("How long with company (months)", 0, 72)
+    dependents = st.radio("Has Family?", ["No", "Yes"])
+    tenure = st.slider("Months with Company", 0, 72)
 
-# -------------------------------
-# SERVICES
-# -------------------------------
 with col2:
-    st.markdown('<div class="section-title">📡 Services</div>', unsafe_allow_html=True)
-
-    phone = st.radio("Uses Phone Service?", ["Yes", "No"])
-    multi = st.radio("Multiple Phone Lines?", ["No", "Yes"])
+    st.markdown('<div class="section">📡 Services</div>', unsafe_allow_html=True)
+    phone = st.radio("Phone Service?", ["Yes", "No"])
+    multi = st.radio("Multiple Lines?", ["No", "Yes"])
     internet = st.selectbox("Internet Type", ["DSL", "Fiber", "No Internet"])
-
     security = st.checkbox("Online Security")
     backup = st.checkbox("Online Backup")
 
-# -------------------------------
-# FEATURES
-# -------------------------------
 with col3:
-    st.markdown('<div class="section-title">⚙️ Features</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section">⚙️ Features</div>', unsafe_allow_html=True)
     device = st.checkbox("Device Protection")
     support = st.checkbox("Tech Support")
     tv = st.checkbox("Streaming TV")
     movies = st.checkbox("Streaming Movies")
-
-    contract = st.selectbox("Contract Type", ["Monthly", "1 Year", "2 Years"])
+    contract = st.selectbox("Contract", ["Monthly", "1 Year", "2 Years"])
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------
-# BILLING CARD 💰
+# BILLING CARD (SMART)
 # -------------------------------
 st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="section">💰 Billing</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="section-title">💰 Billing (Simple)</div>', unsafe_allow_html=True)
-
-monthly = st.slider(
-    "💵 Monthly bill amount (₹)",
-    0, 10000, 1000
-)
-
-# AUTO CALCULATE
+monthly = st.slider("Monthly Bill (₹)", 0, 10000, 1000)
 total = monthly * tenure
 
-st.success(f"📊 Total paid so far: ₹ {total}")
+st.info(f"📊 Estimated total paid: ₹ {total}")
 
 paper = st.radio("Paperless Billing?", ["Yes", "No"])
 payment = st.selectbox("Payment Method", ["Online", "Card", "Bank", "Cash"])
@@ -173,42 +152,47 @@ def preprocess():
     }])
 
 # -------------------------------
-# PREDICT BUTTON
+# PREDICTION
 # -------------------------------
 if st.button("🚀 Analyze Customer"):
 
-    df = preprocess()
-    pred = model.predict(df)[0]
-
-    if hasattr(model, "predict_proba"):
-        prob = model.predict_proba(df)[0][1]
+    if model is None:
+        st.warning("⚠️ Model not loaded properly.")
     else:
-        prob = 0.5
+        try:
+            df = preprocess()
+            pred = model.predict(df)[0]
 
-    percentage = round(prob * 100, 2)
+            if hasattr(model, "predict_proba"):
+                prob = model.predict_proba(df)[0][1]
+            else:
+                prob = 0.5
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
+            percentage = round(prob * 100, 2)
 
-    if pred == 1:
-        st.markdown(
-            f'<div class="result-box" style="background:#7f1d1d;">⚠️ High Churn Risk ({percentage}%)</div>',
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            f'<div class="result-box" style="background:#14532d;">✅ Customer Will Stay ({100 - percentage}%)</div>',
-            unsafe_allow_html=True
-        )
+            st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    # PROGRESS BAR
-    st.progress(prob)
+            if pred == 1:
+                st.markdown(
+                    f'<div class="result" style="background:#7f1d1d;">⚠️ High Churn Risk ({percentage}%)</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f'<div class="result" style="background:#14532d;">✅ Customer Will Stay ({100 - percentage}%)</div>',
+                    unsafe_allow_html=True
+                )
 
-    # RISK LEVEL
-    if percentage < 30:
-        st.success("🟢 Low Risk")
-    elif percentage < 70:
-        st.warning("🟡 Medium Risk")
-    else:
-        st.error("🔴 High Risk")
+            st.progress(prob)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            if percentage < 30:
+                st.success("🟢 Low Risk")
+            elif percentage < 70:
+                st.warning("🟡 Medium Risk")
+            else:
+                st.error("🔴 High Risk")
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error("❌ Prediction failed. Check model compatibility.")
